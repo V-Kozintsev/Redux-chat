@@ -1,7 +1,6 @@
 // chatSlice.ts
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice} from "@reduxjs/toolkit";
 import { initialState } from "./initialState";
-
 
 const chatSlice = createSlice({
   name: "chat",

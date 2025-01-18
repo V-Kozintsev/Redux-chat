@@ -1,62 +1,119 @@
-//файл index.ts
-import "./styles.css";
+/* import "./styles.css";
 
-import { configureStore, createSlice } from "@reduxjs/toolkit";
+import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { getDatabase, ref, onValue } from "firebase/database";
+type DateTimeString = string;
 
-// Redux slice
-const initialState = {
+type Message = {
+  date: DateTimeString;
+  message: string;
+  nickname: string;
+};
+
+export interface ChatState {
+  messages: Message[]; // Filtered messages
+  originalMessages: Message[]; // Original unfiltered messages
+  users: string[];
+  error: string | null;
+}
+
+export interface User {
+  id: string;
+  name: string;
+}
+
+const initialChatState: ChatState = {
   messages: [],
+  originalMessages: [], // Initialize original messages
+  users: [],
   error: null,
 };
 
 const chatSlice = createSlice({
   name: "chat",
-  initialState,
+  initialState: initialChatState,
   reducers: {
-    setMessages(state, action) {
-      state.messages = action.payload;
+    setMessages(state, action: PayloadAction<Message[]>) {
+      state.messages = action.payload; // Set messages
+      state.originalMessages = action.payload; // Store original messages as well
     },
-    addMessage(state, action) {
+    addMessage(state, action: PayloadAction<Message>) {
       state.messages.push(action.payload);
+      state.originalMessages.push(action.payload); // Add to original messages
     },
-    setError(state, action) {
+    setUsers(state, action: PayloadAction<string[]>) {
+      state.users = action.payload;
+    },
+    setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
+    },
+    searchMessage(state, action: PayloadAction<string>) {
+      const searchTerm = action.payload.toLowerCase();
+      console.log("Search term:", searchTerm);
+
+      // Check if the search term is an empty string
+      if (!searchTerm) {
+        // Reset messages to original when the search term is empty
+        state.messages = [...state.originalMessages];
+        return; // Exit the function early
+      }
+
+      // Proceed to filter messages when there's a search term
+      state.messages = state.originalMessages.filter((msg) => {
+        console.log("Current message:", msg);
+        if (
+          msg &&
+          typeof msg.message === "string" &&
+          typeof msg.nickname === "string"
+        ) {
+          return (
+            msg.message.toLowerCase().includes(searchTerm) ||
+            msg.nickname.toLowerCase().includes(searchTerm)
+          );
+        }
+        return false; // Exclude these items from the filtered array
+      });
     },
   },
 });
 
+// Create the Redux store
 const store = configureStore({
   reducer: {
     chat: chatSlice.reducer,
   },
 });
-
-// API functions
 async function getMessagesList() {
-  const response = await fetch(
-    "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json"
-  );
-  const data = await response.json();
-  return Object.values(data).map((el) => ({
-    ...el,
-    date: new Date(el.date),
-  }));
+  try {
+    const response = await fetch(
+      "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json"
+    );
+    if (!response.ok) throw new Error("Network response was not ok");
+    const data = await response.json();
+    return Object.values(data).map((el) => ({
+      ...el,
+      date: el.date, // Keep this as a string
+    }));
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    store.dispatch(chatSlice.actions.setError(error.message));
+  }
 }
 
-async function sendMessage(data) {
-  await fetch(
-    "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        ...data,
-        date: new Date().toISOString(),
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
+async function sendMessage(data, date = new Date().toISOString()) {
+  try {
+    const response = await fetch(
+      "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json",
+      {
+        method: "POST",
+        body: JSON.stringify({ ...data, date }), // date is already a string here
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+    if (!response.ok) throw new Error("Failed to send message");
+  } catch (error) {
+    console.error("Error sending message:", error);
+  }
 }
 
 // UI Functions
@@ -64,14 +121,19 @@ function displayMessages(messages) {
   const messagesDiv = document.getElementById("messages");
   messagesDiv.innerHTML = ""; // Clear current messages
   messages.forEach((msg) => {
+    const msgDate = new Date(msg.date);
+    const formattedDate = msgDate.toLocaleString(); // Format date as needed
     const msgElement = document.createElement("div");
     msgElement.classList.add("message");
-    msgElement.innerHTML = `<span class="nickname">${msg.nickname}: </span>${msg.message}<br/>`;
+    msgElement.innerHTML = `
+<span class="nickname">${msg.nickname}:</span>
+<span>${msg.message}</span>
+<span class="date">${formattedDate}</span>
+`;
     messagesDiv.appendChild(msgElement);
   });
-  messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll down
+  messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom
 }
-
 // Event Listeners
 document.getElementById("send-button").addEventListener("click", async () => {
   const messageInput = document.getElementById("message-input");
@@ -83,6 +145,11 @@ document.getElementById("send-button").addEventListener("click", async () => {
 
   await sendMessage({ message, nickname });
   messageInput.value = ""; // Clear input
+});
+document.getElementById("search-input").addEventListener("input", () => {
+  const searchTerm = document.getElementById("search-input").value;
+  store.dispatch(chatSlice.actions.searchMessage(searchTerm));
+  displayMessages(store.getState().chat.messages);
 });
 
 // Initialize chat
@@ -108,5 +175,20 @@ function observeWithEventSource(callback) {
   });
 }
 
+function observeMessages() {
+  const db = getDatabase();
+  const messagesRef = ref(db, "messages");
+
+  onValue(messagesRef, (snapshot) => {
+    const data = snapshot.val();
+    const messages = data ? Object.values(data) : [];
+    store.dispatch(chatSlice.actions.setMessages(messages));
+    displayMessages(messages);
+  });
+}
 // Start the chat application
 initChat();
+// Export actions for use in components
+
+export default store;
+ */

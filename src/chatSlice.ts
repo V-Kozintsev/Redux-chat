@@ -1,57 +1,49 @@
-// chatSlice.ts
-import { createSlice} from "@reduxjs/toolkit";
-import { initialState } from "./initialState";
+import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { ChatState, Message } from "../src/type";
+
+const initialChatState: ChatState = {
+  messages: [],
+  users: [],
+  error: null,
+};
 
 const chatSlice = createSlice({
   name: "chat",
-  initialState,
+  initialState: initialChatState,
   reducers: {
-    //Получения списка сообщений
-    setMessages(state, action) {
+    setMessage(state, action: PayloadAction<Message[]>) {
       state.messages = action.payload;
     },
-    //Получение одного сообщения
-    addMessage(state, action) {
+    addMessage(state, action: PayloadAction<Message>) {
       state.messages.push(action.payload);
     },
-    // Отправка сообщения
-    sendMessage(state, action) {
-      state.messages.unshift(action.payload);
+    setUsers(state, action: PayloadAction<string[]>) {
+      // Adjust type as necessary
+      state.users = action.payload; // Corrected from state.messages to state.users
     },
-    // Получение списка пользователей
-    setUsers(state, action) {
-      state.users = action.payload;
+    setError(state, action: PayloadAction<string | null>) {
+      state.error = action.payload; // Corrected from state.messages to state.error
     },
-    // Поиск по чату
-    setSearchQuery(state, action) {
-      state.searchQuery = action.payload;
-    },
-    // Изменение статуса загрузки
-    setLoading(state, action) {
-      state.isLoading = action.payload;
-    },
-    // Установка ошибки
-    setError(state, action) {
-      state.error = action.payload;
-    },
-    // Очистка ошибок
-    clearError(state) {
-      state.error = null;
+    searchMessage(state, action: PayloadAction<string>) {
+      const searchTerm = action.payload.toLowerCase();
+      state.messages = state.messages.filter(
+        (msg) =>
+          msg.message.toLowerCase().includes(searchTerm) ||
+          msg.nickname.toLowerCase().includes(searchTerm),
+      );
     },
   },
 });
 
-// Экспорты экшенов
-export const {
-  setMessages,
-  addMessage,
-  sendMessage,
-  setUsers,
-  setSearchQuery,
-  setLoading,
-  setError,
-  clearError,
-} = chatSlice.actions;
+// Create the Redux store
+const store = configureStore({
+  reducer: {
+    chat: chatSlice.reducer,
+  },
+});
 
-// Экспорт редьюсера
-export default chatSlice.reducer;
+// Export actions for use in components
+export const { setMessage, addMessage, setUsers, setError, searchMessage } =
+  chatSlice.actions;
+
+export default store;

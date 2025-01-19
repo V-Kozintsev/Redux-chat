@@ -1,5 +1,3 @@
-// Generated using webpack-cli https://github.com/webpack/webpack-cli
-
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
@@ -53,14 +51,20 @@ const config = {
         use: [stylesHandler, "css-loader"],
       },
       {
-        test: /\.(eot|svg|ttf|woff|woff2|png|jpg|gif)$/i,
-        type: "asset", // Use asset modules for images and fonts
+        test: /\.(png|jpg|gif|svg)$/i,
+        type: "asset/resource",
+        generator: {
+          filename: "assets/images/[name].[hash][ext]",
+        },
       },
     ],
   },
 
   resolve: {
     extensions: [".tsx", ".ts", ".jsx", ".js"],
+    alias: {
+      "@animate-css": path.resolve(__dirname, "node_modules/animate.css"), // Укажите путь к вашей библиотеке
+    },
   },
 
   mode: isProduction ? "production" : "development", // Simplified mode assignment

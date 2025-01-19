@@ -1,6 +1,8 @@
 import "./styles.css";
-
 import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import smiley from "./assets/images/smiley.png";
+import sadSmiley from "./assets/images/sad.png";
+import laugh from "./assets/images/laugh.png";
 
 type DateTimeString = string;
 
@@ -15,11 +17,6 @@ export interface ChatState {
   originalMessages: Message[];
   users: string[];
   error: string | null;
-}
-
-export interface User {
-  id: string;
-  name: string;
 }
 
 const initialChatState: ChatState = {
@@ -49,12 +46,10 @@ const chatSlice = createSlice({
     },
     searchMessage(state, action: PayloadAction<string>) {
       const searchTerm = action.payload.toLowerCase();
-
       if (!searchTerm) {
         state.messages = [...state.originalMessages];
         return;
       }
-
       state.messages = state.originalMessages.filter((msg) => {
         if (
           msg &&
@@ -84,14 +79,20 @@ async function getMessagesList() {
       "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json"
     );
     if (!response.ok) throw new Error("Network response was not ok");
-    const data: Message[] = await response.json();
-    return Object.values(data).map((el) => ({
+
+    const data: Record<string, Message> = await response.json();
+    const messages = Object.values(data).map((el) => ({
       ...el,
-      date: el.date,
+      date: el.date || new Date().toISOString(),
     }));
+    return messages;
   } catch (error) {
     console.error("Error fetching messages:", error);
-    store.dispatch(chatSlice.actions.setError(error.message));
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    store.dispatch(chatSlice.actions.setError(errorMessage ?? "Unknown error"));
+
+    return [];
   }
 }
 
@@ -111,24 +112,49 @@ async function sendMessage(data: Message, date = new Date().toISOString()) {
   }
 }
 
-function displayMessages(messages: Message[]) {
+function displayMessages(
+  messages: Message[],
+  newMessage: Message | null = null
+) {
   const messagesDiv = document.getElementById("messages") as HTMLDivElement;
   messagesDiv.innerHTML = "";
+
   messages.forEach((msg) => {
     const msgDate = new Date(msg.date);
     const formattedDate = msgDate.toLocaleString();
+
+    // Обработка текста для смайлов
+    const messageWithSmilies =
+      typeof msg.message === "string"
+        ? msg.message
+            .replace(
+              /XD/g,
+              `<img src="${laugh}" alt=":-D" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`
+            )
+            .replace(
+              /:-\)/g,
+              `<img src="${smiley}" alt=":-)" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`
+            )
+            .replace(
+              /:-\(/g,
+              `<img src="${sadSmiley}" alt=":-(" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`
+            )
+        : "";
+
     const msgElement = document.createElement("div");
     msgElement.classList.add("message");
     msgElement.innerHTML = `
-<span class="nickname">${msg.nickname}:</span>
-<span>${msg.message}</span>
-<span class="date">${formattedDate}</span>
-`;
+      <span class="nickname">${msg.nickname}:</span>
+      <span>${messageWithSmilies}</span>
+      <span class="date">${formattedDate}</span>
+    `;
     messagesDiv.appendChild(msgElement);
   });
+
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
+// Обработчик отправки сообщения
 document.getElementById("send-button")?.addEventListener("click", async () => {
   const messageInput = document.getElementById(
     "message-input"
@@ -146,33 +172,29 @@ document.getElementById("send-button")?.addEventListener("click", async () => {
     nickname,
     date: "",
   });
-  messageInput.value = ""; // Clear input
+  messageInput.value = "";
 });
 
+// Обработчик поиска
 const searchInput = document.getElementById("search-input") as HTMLInputElement;
 searchInput.addEventListener("input", () => {
-  const searchTerm = document.getElementById(
-    "search-input"
-  ) as HTMLInputElement;
-  const searchTermValue = searchTerm.value;
-  store.dispatch(chatSlice.actions.searchMessage(searchTermValue));
+  const searchTerm = searchInput.value;
+  store.dispatch(chatSlice.actions.searchMessage(searchTerm));
   displayMessages(store.getState().chat.messages);
 });
 
+// Инициализация чата
 async function initChat() {
   const messages = await getMessagesList();
-  if (!messages) {
-    return;
-  }
   store.dispatch(chatSlice.actions.setMessages(messages));
   displayMessages(messages);
 
+  // Наблюдение за новыми сообщениями
   observeWithEventSource((newMessage: Message) => {
     store.dispatch(chatSlice.actions.addMessage(newMessage));
-    displayMessages(store.getState().chat.messages);
+    displayMessages(store.getState().chat.messages, newMessage);
   });
 }
-
 function observeWithEventSource(callback: (message: Message) => void) {
   const evtSource = new EventSource(
     "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json"
@@ -182,4 +204,5 @@ function observeWithEventSource(callback: (message: Message) => void) {
     callback(data.data);
   });
 }
+
 initChat();

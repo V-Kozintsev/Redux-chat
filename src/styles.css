@@ -61,7 +61,7 @@ h1 {
   right: 5px;
 }
 
-input[type="text"] {
+.inputVal {
   width: calc(100% - 22px);
   padding: 10px;
   margin-bottom: 5px;

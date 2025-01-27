@@ -1,8 +1,13 @@
 import "./styles.css";
+import { renderChatUI } from "./renderChatUI";
 import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import smiley from "./assets/images/smiley.png";
 import sadSmiley from "./assets/images/sad.png";
 import laugh from "./assets/images/laugh.png";
+import { selectFilteredMessages } from "./selectors";
+
+// Вызываем функцию для рендеринга UI
+renderChatUI();
 
 type DateTimeString = string;
 
@@ -14,16 +19,16 @@ type Message = {
 
 export interface ChatState {
   messages: Message[];
-  originalMessages: Message[];
   users: string[];
   error: string | null;
+  searchTerm: string; // Добавляем поисковую строку в состояние
 }
 
 const initialChatState: ChatState = {
   messages: [],
-  originalMessages: [],
   users: [],
   error: null,
+  searchTerm: "",
 };
 
 const chatSlice = createSlice({
@@ -32,11 +37,9 @@ const chatSlice = createSlice({
   reducers: {
     setMessages(state, action: PayloadAction<Message[]>) {
       state.messages = action.payload;
-      state.originalMessages = action.payload;
     },
     addMessage(state, action: PayloadAction<Message>) {
       state.messages.push(action.payload);
-      state.originalMessages.push(action.payload);
     },
     setUsers(state, action: PayloadAction<string[]>) {
       state.users = action.payload;
@@ -45,38 +48,25 @@ const chatSlice = createSlice({
       state.error = action.payload;
     },
     searchMessage(state, action: PayloadAction<string>) {
-      const searchTerm = action.payload.toLowerCase();
-      if (!searchTerm) {
-        state.messages = [...state.originalMessages];
-        return;
-      }
-      state.messages = state.originalMessages.filter((msg) => {
-        if (
-          msg &&
-          typeof msg.message === "string" &&
-          typeof msg.nickname === "string"
-        ) {
-          return (
-            msg.message.toLowerCase().includes(searchTerm) ||
-            msg.nickname.toLowerCase().includes(searchTerm)
-          );
-        }
-        return false;
-      });
+      state.searchTerm = action.payload; // Устанавливаем поисковую строку в стейт
     },
   },
 });
 
-const store = configureStore({
+export const { setMessages, addMessage, setUsers, setError, searchMessage } =
+  chatSlice.actions;
+export const store = configureStore({
   reducer: {
     chat: chatSlice.reducer,
   },
 });
 
+export const selectChatState = (state: { chat: ChatState }) => state.chat;
+
 async function getMessagesList() {
   try {
     const response = await fetch(
-      "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json"
+      "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json",
     );
     if (!response.ok) throw new Error("Network response was not ok");
 
@@ -104,7 +94,7 @@ async function sendMessage(data: Message, date = new Date().toISOString()) {
         method: "POST",
         body: JSON.stringify({ ...data, date }),
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
     if (!response.ok) throw new Error("Failed to send message");
   } catch (error) {
@@ -114,7 +104,7 @@ async function sendMessage(data: Message, date = new Date().toISOString()) {
 
 function displayMessages(
   messages: Message[],
-  newMessage: Message | null = null
+  newMessage: Message | null = null,
 ) {
   const messagesDiv = document.getElementById("messages") as HTMLDivElement;
   messagesDiv.innerHTML = "";
@@ -129,15 +119,15 @@ function displayMessages(
         ? msg.message
             .replace(
               /XD/g,
-              `<img src="${laugh}" alt=":-D" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`
+              `<img src="${laugh}" alt=":-D" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`,
             )
             .replace(
               /:-\)/g,
-              `<img src="${smiley}" alt=":-)" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`
+              `<img src="${smiley}" alt=":-)" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`,
             )
             .replace(
               /:-\(/g,
-              `<img src="${sadSmiley}" alt=":-(" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`
+              `<img src="${sadSmiley}" alt=":-(" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`,
             )
         : "";
 
@@ -157,10 +147,10 @@ function displayMessages(
 // Обработчик отправки сообщения
 document.getElementById("send-button")?.addEventListener("click", async () => {
   const messageInput = document.getElementById(
-    "message-input"
+    "message-input",
   ) as HTMLInputElement;
   const nicknameInput = document.getElementById(
-    "nickname-input"
+    "nickname-input",
   ) as HTMLInputElement;
   const message = messageInput.value;
   const nickname = nicknameInput.value || "Anonymous";
@@ -179,25 +169,27 @@ document.getElementById("send-button")?.addEventListener("click", async () => {
 const searchInput = document.getElementById("search-input") as HTMLInputElement;
 searchInput.addEventListener("input", () => {
   const searchTerm = searchInput.value;
-  store.dispatch(chatSlice.actions.searchMessage(searchTerm));
-  displayMessages(store.getState().chat.messages);
+  store.dispatch(searchMessage(searchTerm));
+  // Перерисовываем сообщения, используя селектор
+  displayMessages(selectFilteredMessages(store.getState()));
 });
 
 // Инициализация чата
 async function initChat() {
   const messages = await getMessagesList();
-  store.dispatch(chatSlice.actions.setMessages(messages));
-  displayMessages(messages);
+  store.dispatch(setMessages(messages));
+  // Перерисовываем сообщения, используя селектор
+  displayMessages(selectFilteredMessages(store.getState()));
 
   // Наблюдение за новыми сообщениями
   observeWithEventSource((newMessage: Message) => {
-    store.dispatch(chatSlice.actions.addMessage(newMessage));
-    displayMessages(store.getState().chat.messages, newMessage);
+    store.dispatch(addMessage(newMessage));
+    displayMessages(selectFilteredMessages(store.getState()), newMessage);
   });
 }
 function observeWithEventSource(callback: (message: Message) => void) {
   const evtSource = new EventSource(
-    "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json"
+    "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json",
   );
   evtSource.addEventListener("put", (event) => {
     const data = JSON.parse(event.data);

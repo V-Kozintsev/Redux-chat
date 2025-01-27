@@ -1,16 +1,16 @@
 declare module "*.png" {
-  const value: any;
+  const value;
   export default value;
 }
 declare module "*.jpg" {
-  const value: any;
+  const value;
   export default value;
 }
 declare module "*.gif" {
-  const value: any;
+  const value;
   export default value;
 }
 declare module "*.svg" {
-  const value: any;
+  const value;
   export default value;
 }

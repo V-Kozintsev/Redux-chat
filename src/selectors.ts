@@ -1,5 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit";
-import { ChatState } from "./index";
+import { ChatState } from "./types";
 
 export const selectFilteredMessages = createSelector(
   (state: { chat: ChatState }) => state.chat.messages,

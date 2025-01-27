@@ -1,148 +1,18 @@
 import "./styles.css";
 import { renderChatUI } from "./renderChatUI";
-import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import smiley from "./assets/images/smiley.png";
-import sadSmiley from "./assets/images/sad.png";
-import laugh from "./assets/images/laugh.png";
 import { selectFilteredMessages } from "./selectors";
+import { Message } from "./types";
+import {
+  addMessage,
+  searchMessage,
+  setMessages,
+  store,
+} from "./store/chatSlice";
+import { sendMessage, getMessagesList } from "./api";
+import { displayMessages } from "./utils";
 
 // Вызываем функцию для рендеринга UI
 renderChatUI();
-
-type DateTimeString = string;
-
-type Message = {
-  date: DateTimeString;
-  message: string;
-  nickname: string;
-};
-
-export interface ChatState {
-  messages: Message[];
-  users: string[];
-  error: string | null;
-  searchTerm: string; // Добавляем поисковую строку в состояние
-}
-
-const initialChatState: ChatState = {
-  messages: [],
-  users: [],
-  error: null,
-  searchTerm: "",
-};
-
-const chatSlice = createSlice({
-  name: "chat",
-  initialState: initialChatState,
-  reducers: {
-    setMessages(state, action: PayloadAction<Message[]>) {
-      state.messages = action.payload;
-    },
-    addMessage(state, action: PayloadAction<Message>) {
-      state.messages.push(action.payload);
-    },
-    setUsers(state, action: PayloadAction<string[]>) {
-      state.users = action.payload;
-    },
-    setError(state, action: PayloadAction<string | null>) {
-      state.error = action.payload;
-    },
-    searchMessage(state, action: PayloadAction<string>) {
-      state.searchTerm = action.payload; // Устанавливаем поисковую строку в стейт
-    },
-  },
-});
-
-export const { setMessages, addMessage, setUsers, setError, searchMessage } =
-  chatSlice.actions;
-export const store = configureStore({
-  reducer: {
-    chat: chatSlice.reducer,
-  },
-});
-
-export const selectChatState = (state: { chat: ChatState }) => state.chat;
-
-async function getMessagesList() {
-  try {
-    const response = await fetch(
-      "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json",
-    );
-    if (!response.ok) throw new Error("Network response was not ok");
-
-    const data: Record<string, Message> = await response.json();
-    const messages = Object.values(data).map((el) => ({
-      ...el,
-      date: el.date || new Date().toISOString(),
-    }));
-    return messages;
-  } catch (error) {
-    console.error("Error fetching messages:", error);
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    store.dispatch(chatSlice.actions.setError(errorMessage ?? "Unknown error"));
-
-    return [];
-  }
-}
-
-async function sendMessage(data: Message, date = new Date().toISOString()) {
-  try {
-    const response = await fetch(
-      "https://otus-js-chat-4ed79-default-rtdb.firebaseio.com/messages.json",
-      {
-        method: "POST",
-        body: JSON.stringify({ ...data, date }),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    if (!response.ok) throw new Error("Failed to send message");
-  } catch (error) {
-    console.error("Error sending message:", error);
-  }
-}
-
-function displayMessages(
-  messages: Message[],
-  newMessage: Message | null = null,
-) {
-  const messagesDiv = document.getElementById("messages") as HTMLDivElement;
-  messagesDiv.innerHTML = "";
-
-  messages.forEach((msg) => {
-    const msgDate = new Date(msg.date);
-    const formattedDate = msgDate.toLocaleString();
-
-    // Обработка текста для смайлов
-    const messageWithSmilies =
-      typeof msg.message === "string"
-        ? msg.message
-            .replace(
-              /XD/g,
-              `<img src="${laugh}" alt=":-D" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`,
-            )
-            .replace(
-              /:-\)/g,
-              `<img src="${smiley}" alt=":-)" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`,
-            )
-            .replace(
-              /:-\(/g,
-              `<img src="${sadSmiley}" alt=":-(" class="emoji ${newMessage && msg === newMessage ? "bouncing" : ""}"/>`,
-            )
-        : "";
-
-    const msgElement = document.createElement("div");
-    msgElement.classList.add("message");
-    msgElement.innerHTML = `
-      <span class="nickname">${msg.nickname}:</span>
-      <span>${messageWithSmilies}</span>
-      <span class="date">${formattedDate}</span>
-    `;
-    messagesDiv.appendChild(msgElement);
-  });
-
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
 
 // Обработчик отправки сообщения
 document.getElementById("send-button")?.addEventListener("click", async () => {

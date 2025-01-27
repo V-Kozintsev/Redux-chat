@@ -1,0 +1,147 @@
+/* файл style.css */
+@import "@animate-css/animate.min.css";
+body {
+  font-family: "Arial", sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f8f9fa;
+}
+
+#chat-container {
+  width: 90%;
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 2px solid #007bff;
+  border-radius: 10px;
+  background: #f8f9fa;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+h1 {
+  text-align: center;
+  font-family: "Arial", sans-serif;
+  margin-bottom: 20px;
+  color: #0056b3;
+}
+
+#messages {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid #007bff;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.message {
+  margin: 5px 0;
+  padding: 10px;
+  border-radius: 5px;
+  background: #e9ecef;
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+.message:hover {
+  background: #d1e7dd;
+}
+
+.message .nickname {
+  font-weight: bold;
+  color: #007bff;
+}
+
+.message .date {
+  font-size: 0.8em;
+  color: #6c757d;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.inputVal {
+  width: calc(100% - 22px);
+  padding: 10px;
+  margin-bottom: 5px;
+  border: 1px solid #007bff;
+  border-radius: 5px;
+  font-size: 1em;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+.inputVal:focus {
+  border-color: #0056b3;
+  outline: none;
+}
+/* комит */
+@keyframes bounceAndFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bouncing {
+  animation: bounceAndFadeIn 0.5s ease-in-out;
+}
+
+.emoji {
+  width: 20px;
+  height: 20px;
+}
+
+/* Для маленьких экранов (ширина меньше 768px) */
+@media (max-width: 768px) {
+  #chat-container {
+    width: 95%;
+    padding: 15px;
+  }
+
+  #messages {
+    height: 250px;
+  }
+  input[type="text"] {
+    font-size: 0.9em;
+  }
+  button {
+    font-size: 0.9em;
+  }
+}
+
+/* Для очень маленьких экранов (ширина меньше 480px) */
+@media (max-width: 480px) {
+  #chat-container {
+    width: 98%;
+    padding: 10px;
+  }
+  h1 {
+    font-size: 1.3em;
+  }
+  #messages {
+    height: 200px;
+  }
+}
